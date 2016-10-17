@@ -1,4 +1,4 @@
-E_USE_VERSION 26
+#define FUSE_USE_VERSION 26
 
 #include <sys/types.h>
 #include <fuse.h>
@@ -77,3 +77,46 @@ static int mkdir_callback(const char* path, mode_t mode)
 		lseek(dirsfd, startPos, SEEK_SET);
 	return 0;
 }
+
+
+static int rmdir_callback(const char *path)
+{
+	lseek(dirsfd, startPos, SEEK_SET);
+	int curpos = 0;
+	while (read(dirsfd, &dir, sizeof(struct directory)) != 0) {
+		if (!dir.isFree && strncmp(dir.path, path, strlen(path)) == 0) {
+			dir.isFree =  1;
+			lseek(dirsfd, startPos + curpos * sizeof(struct directory), SEEK_SET);
+			write(dirsfd, &dir, sizeof(struct directory));
+		}
+		curpos++;
+	}
+	return 0;
+}
+
+static int open_callback(const char *path, struct fuse_file_info *fi) {
+	return 0;
+}
+
+static int read_callback(const char *path, char *buf, size_t size, off_t offset,
+    struct fuse_file_info *fi) {
+	return 0;
+}
+
+static struct fuse_operations fuse_example_operations = {
+	.getattr = getattr_callback,
+	.open = open_callback,
+	.read = read_callback,
+	.readdir = readdir_callback,
+	.mkdir = mkdir_callback,
+	.rmdir = rmdir_callback,
+};
+
+int main(int argc, char *argv[])
+{
+	dirsfd = open("./directories", O_RDWR | O_CREAT, 0777);
+	int ret = fuse_main(argc, argv, &fuse_example_operations, NULL);
+	close(dirsfd);
+	return ret;
+}
+
