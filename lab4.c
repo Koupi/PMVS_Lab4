@@ -85,6 +85,32 @@ static int mkdir_callback(const char* path, mode_t mode)
 }
 
 
+static int readdir_callback(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi) 
+{
+	(void) offset;
+	(void) fi;
+
+	filler(buf, ".", NULL, 0);
+	filler(buf, "..", NULL, 0);
+	lseek(dirsfd, startPos, SEEK_SET);
+	fsync(dirsfd);
+	while (read(dirsfd, &dir, sizeof(struct directory)) != 0) 
+	{
+		if (dir.isFree == 0) 
+		{
+			char s[600];
+			strcpy(s, path);
+			if (s[1] == '\0')
+				s[0] = '\0';
+			strcat(s, dir.name);
+			if (strcmp(s, dir.path) == 0)
+				filler(buf, dir.name + 1, NULL, 0);
+		}
+	}
+
+	return 0;
+}
+
 static int rmdir_callback(const char *path)
 {
 	lseek(dirsfd, startPos, SEEK_SET);
